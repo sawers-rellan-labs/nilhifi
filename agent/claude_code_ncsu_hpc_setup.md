@@ -467,14 +467,41 @@ symlinks or certain filesystem operations that git requires (e.g., `git init`
 fails creating hook symlinks, `git rebase` can fail on lock files). Running git
 locally through SMB produces silent corruption or `Operation not permitted` errors.
 
-```bash
-# CORRECT — all git commands go through SSH
-ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git init"
-ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git add -A && git status"
-ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git commit -m 'message'"
-ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git log --oneline -5"
+**Simple git commands** (status, add, log, one-line commit) work as direct SSH:
 
-# WRONG — do NOT run git locally on the SMB mount
+```bash
+ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git status"
+ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git add -A"
+ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git log --oneline -5"
+ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git commit -m 'short message'"
+```
+
+**Multi-line commits** — use the script file `agent/git_commit.sh`. This file
+is `.gitignore`d and is overwritten by the agent each time a commit is needed.
+The agent writes the commit message into the script via SMB, then executes it
+via SSH:
+
+```bash
+# 1. Agent writes agent/git_commit.sh via SMB (Write tool):
+#!/bin/bash
+cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR
+git commit -m "Subject line
+
+- Detail one
+- Detail two
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+
+# 2. Agent executes via SSH:
+ssh hazel "bash /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR/agent/git_commit.sh"
+```
+
+This avoids nested-quote and special-character mangling through SSH.
+
+**Do NOT run git locally on the SMB mount:**
+
+```bash
+# WRONG
 git init          # fails: Operation not permitted (hook symlinks)
 git commit        # may fail or corrupt index
 ```
