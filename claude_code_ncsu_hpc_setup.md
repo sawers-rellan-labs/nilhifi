@@ -265,6 +265,43 @@ ssh hazel "bsub < /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR/scripts/my_job.sh"
 
 `ControlPersist 60m` resets the timer on every SSH command. Active Claude Code sessions effectively never time out.
 
+### Non-Interactive Shell Environment
+
+**Critical:** `ssh hazel "command"` runs a **non-interactive, non-login shell**.
+This means `/etc/profile` and `/etc/profile.d/*` are NOT sourced — only
+`/etc/bashrc` runs. On NCSU HPC, the LSF environment (PATH to `bsub`/`bjobs`,
+`LSF_ENVDIR`, `LSF_SERVERDIR`) is set up by `/etc/profile.d/hpc.sh`, which
+calls `source /usr/local/lsf/conf/profile.lsf`. Without this, SSH commands
+from Claude Code cannot find `bsub` or submit jobs.
+
+```
+Interactive login shell (ssh hazel, then type):
+  /etc/profile → /etc/profile.d/hpc.sh → LSF env ✓
+  ~/.bash_profile → ~/.bashrc → conda ✓
+
+Non-interactive shell (ssh hazel "command"):
+  /etc/bashrc only → NO LSF env ✗, NO conda ✗
+```
+
+**Fix:** Add LSF setup to `~/.bashrc` so it loads in both contexts:
+
+```bash
+# Add to ~/.bashrc (after conda init block):
+source /usr/local/lsf/conf/profile.lsf
+```
+
+After this, all SSH commands from Claude Code must prefix with `source ~/.bashrc`:
+
+```bash
+ssh hazel "source ~/.bashrc && bjobs"
+ssh hazel "source ~/.bashrc && bsub < script.sh"
+ssh hazel "source ~/.bashrc && conda activate /path/to/env && nextflow ..."
+```
+
+Note: `~/.bashrc` is not auto-sourced by non-interactive shells despite the fix
+above — the file is sourced by interactive shells only. The explicit
+`source ~/.bashrc` is required in every `ssh hazel "..."` command from Claude Code.
+
 ### Verify the Socket
 
 ```bash
@@ -281,6 +318,8 @@ ssh -O check hazel 2>&1
 | Missing `~/.ssh/sockets/` directory | Socket creation fails silently | `mkdir -p ~/.ssh/sockets` |
 | SSH key doesn't exist at the `IdentityFile` path | SSH warnings (harmless — server ignores keys anyway) | Point to an existing key or remove the line |
 | ControlPersist too short | Socket expires mid-session | Use `60m` |
+| Missing `source ~/.bashrc` in SSH commands | `bsub: command not found` or `lsb_init: fopen(lsf.conf) failed` | Prefix all Claude Code SSH commands with `source ~/.bashrc &&` |
+| `~/.bashrc` missing `source /usr/local/lsf/conf/profile.lsf` | LSF commands fail even with `source ~/.bashrc` | Add `source /usr/local/lsf/conf/profile.lsf` to `~/.bashrc` |
 
 ---
 
@@ -427,11 +466,14 @@ The ControlMaster socket (~50ms per SSH round-trip) makes this cycle fast enough
 
 ### SSH Command Patterns
 
+**All SSH commands from Claude Code must `source ~/.bashrc`** to load the LSF
+environment and conda (see "Non-Interactive Shell Environment" above).
+
 **Simple one-liners** — for LSF, conda, `ls`, etc.:
 
 ```bash
-ssh hazel "bjobs 311295"
-ssh hazel "bpeek 311295 2>&1 | tail -30"
+ssh hazel "source ~/.bashrc && bjobs 311295"
+ssh hazel "source ~/.bashrc && bpeek 311295 2>&1 | tail -30"
 ssh hazel "ls -lh /rsstu/users/r/$GROUP_FOLDER/"
 ```
 
