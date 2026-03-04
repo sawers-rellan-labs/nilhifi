@@ -9,8 +9,8 @@ results/
 # Generated DAG (regenerate with -preview -with-dag)
 nextflow/dag.svg
 
-# Agent scratch files (rewritten each commit)
-agent/git_commit.sh
+# Agent documentation (internal, not versioned)
+agent/
 
 # macOS
 .DS_Store
