@@ -3,6 +3,10 @@ nextflow/work/
 nextflow/.nextflow/
 nextflow/.nextflow.log*
 
+# LSF job logs
+nextflow/nil_pipeline_*.out
+nextflow/nil_pipeline_*.err
+
 # Pipeline outputs
 results/
 

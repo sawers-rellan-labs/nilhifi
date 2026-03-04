@@ -98,14 +98,25 @@ results/
 
 ## Running
 
-```bash
-# On HPC (via SSH from laptop)
-cd /rsstu/users/r/rrellan/tlaloc/nil_pipeline/nextflow
-nextflow run main.nf -profile lsf -resume
+Submit via the LSF wrapper script — Nextflow runs as a lightweight orchestrator
+job (1 CPU, 8 GB) and submits the actual compute jobs to LSF:
 
-# With AnchorWave
-nextflow run main.nf -profile lsf -resume --run_anchorwave true
+```bash
+# On HPC
+cd /rsstu/users/r/rrellan/tlaloc/nil_pipeline/nextflow
+bsub < run_nil_pipeline.sh
+
+# Monitor
+bjobs          # check orchestrator + child jobs
+bpeek <jobid>  # view Nextflow stdout in real time
 ```
+
+To enable AnchorWave, edit `nextflow.config` and set `params.run_anchorwave = true`
+before submitting.
+
+**Do NOT run Nextflow directly on the login node** — use the wrapper script.
+Running `nextflow run` interactively on a login node violates HPC AUP and
+causes LSF environment issues (missing `bsub`, `lsf.conf`).
 
 ## Key Design Decisions
 
