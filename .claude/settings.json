@@ -9,10 +9,13 @@
       "Bash(ssh hazel \"bhist *\")",
       "Bash(ssh hazel \"bkill *\")",
       "Bash(ssh hazel \"bqueue *\")",
-      "Bash(ssh hazel \"source /usr/local/apps/miniconda20240526/etc/profile.d/conda.sh && conda *\")"
+      "Bash(ssh hazel \"source /usr/local/apps/miniconda20240526/etc/profile.d/conda.sh && conda *\")",
+      "Bash(ssh hazel \"cd /rsstu/users/r/rrellan/tlaloc/nil_pipeline && git *\")"
     ],
     "deny": [
-      "Write(~/mnt/rrellan/sara/DNA_Sequencing_raw/**)"
+      "Write(~/mnt/rrellan/sara/DNA_Sequencing_raw/**)",
+      "Bash(ssh hazel \"*rm -rf*\")",
+      "Bash(ssh hazel \"*mv *\")"
     ]
   },
   "sandbox": {

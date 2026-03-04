@@ -108,3 +108,5 @@ Raw data: `/rsstu/users/r/rrellan/sara/DNA_Sequencing_raw/BDI_BNI_NILS/`
 - **ControlMaster**: SSH connections multiplex over one socket for 60 minutes
 - **Sandbox**: macOS seatbelt restricts writes to project folder only
 - **Permissions**: See `.claude/settings.json` for pre-approved commands
+- **Deny rules**: `rm -rf` and `mv` via SSH are always blocked (deny overrides allow)
+- **Git**: All git commands must go through SSH (`ssh hazel "cd /rsstu/... && git ..."`), NOT locally on the SMB mount

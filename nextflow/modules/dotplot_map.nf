@@ -10,7 +10,7 @@ process DOTPLOT_MAP {
     tuple val(sample), path(query_fa), val(ref_name), path(ref_fa), path(ref_gff)
 
     output:
-    tuple val(sample), val(ref_name), path("dotplot.tab")
+    tuple val(sample), val(ref_name), path("dotplot_vs_${ref_name}.tab")
 
     script:
     def fix_pt = ref_name == 'PT' ? "sed 's/^>PT0/>chr/; s/^>PT/>chr/' ${ref_fa} > ref_fixed.fa" : "ln -s ${ref_fa} ref_fixed.fa"
@@ -24,6 +24,6 @@ process DOTPLOT_MAP {
 
     awk '\$1 ~ /^@/ || \$5 >= 60' query.sam > query_mq60.sam
 
-    perl ${projectDir}/bin/alignmentToDotplot.pl ${ref_gff} query_mq60.sam > dotplot.tab
+    perl ${projectDir}/bin/alignmentToDotplot.pl ${ref_gff} query_mq60.sam > dotplot_vs_${ref_name}.tab
     """
 }

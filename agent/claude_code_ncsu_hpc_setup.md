@@ -302,9 +302,13 @@ This file controls permissions and the macOS seatbelt sandbox. Create it in the 
       "Bash(ssh hazel \"bhist *\")",
       "Bash(ssh hazel \"bkill *\")",
       "Bash(ssh hazel \"bqueue *\")",
-      "Bash(ssh hazel \"source /usr/local/apps/miniconda20240526/etc/profile.d/conda.sh && conda *\")"
+      "Bash(ssh hazel \"source /usr/local/apps/miniconda20240526/etc/profile.d/conda.sh && conda *\")",
+      "Bash(ssh hazel \"cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git *\")"
     ],
-    "deny": []
+    "deny": [
+      "Bash(ssh hazel \"*rm -rf*\")",
+      "Bash(ssh hazel \"*mv *\")"
+    ]
   },
   "sandbox": {
     "enabled": true,
@@ -347,6 +351,7 @@ Key settings explained:
 | `enabled` | `true` | All Bash commands run inside seatbelt sandbox |
 | `autoAllowBashIfSandboxed` | `true` | Sandboxed commands don't need individual approval |
 | `excludedCommands` | `["ssh:*"]` | SSH excluded because seatbelt can't sandbox remote execution — the `ssh:*` glob matches any ssh subcommand, falls back to permission rules |
+| `deny` (permissions) | `rm -rf`, `mv` via SSH | Destructive remote commands (`rm -rf`, `mv`) are always blocked, even if matched by broad allow rules in `settings.local.json`. Deny rules take precedence over allow rules |
 | `allowWrite` | Project folder | OS-level: even if Claude Code tried to write elsewhere, macOS blocks it |
 | `allowedDomains` | HPC hostnames | **Required** — empty `[]` blocks ALL DNS resolution from sandboxed commands |
 
@@ -454,6 +459,35 @@ The same files are visible at two paths:
 | HPC (SSH commands, job scripts) | `/rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR/` |
 
 Scripts use HPC absolute paths. Claude Code reads/writes via the local mount. Only SSH commands use HPC paths.
+
+### Git Over SSH (Required)
+
+**Git commands MUST run via SSH, not locally.** The SMB mount does not support
+symlinks or certain filesystem operations that git requires (e.g., `git init`
+fails creating hook symlinks, `git rebase` can fail on lock files). Running git
+locally through SMB produces silent corruption or `Operation not permitted` errors.
+
+```bash
+# CORRECT — all git commands go through SSH
+ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git init"
+ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git add -A && git status"
+ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git commit -m 'message'"
+ssh hazel "cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git log --oneline -5"
+
+# WRONG — do NOT run git locally on the SMB mount
+git init          # fails: Operation not permitted (hook symlinks)
+git commit        # may fail or corrupt index
+```
+
+The pre-approved permission pattern in `settings.json`:
+
+```json
+"Bash(ssh hazel \"cd /rsstu/users/r/$GROUP_FOLDER/$PROJECT_DIR && git *\")"
+```
+
+**Deny rules still apply**: `rm -rf` and `mv` via SSH are always blocked, even
+inside git commands. If a git operation needs these (e.g., `git clean -fd`),
+the agent must ask the user for confirmation.
 
 ---
 

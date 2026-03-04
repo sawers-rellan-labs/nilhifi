@@ -32,10 +32,13 @@ Path: `~/mnt/rrellan/tlaloc/nil_pipeline/.claude/settings.json`
       "Bash(ssh hazel \"bhist *\")",
       "Bash(ssh hazel \"bkill *\")",
       "Bash(ssh hazel \"bqueue *\")",
-      "Bash(ssh hazel \"source /usr/local/apps/miniconda20240526/etc/profile.d/conda.sh && conda *\")"
+      "Bash(ssh hazel \"source /usr/local/apps/miniconda20240526/etc/profile.d/conda.sh && conda *\")",
+      "Bash(ssh hazel \"cd /rsstu/users/r/rrellan/tlaloc/nil_pipeline && git *\")"
     ],
     "deny": [
-      "Write(~/mnt/rrellan/sara/DNA_Sequencing_raw/**)"
+      "Write(~/mnt/rrellan/sara/DNA_Sequencing_raw/**)",
+      "Bash(ssh hazel \"*rm -rf*\")",
+      "Bash(ssh hazel \"*mv *\")"
     ]
   },
   "sandbox": {
@@ -106,6 +109,16 @@ cd ~/mnt/rrellan/tlaloc/nil_pipeline
 claude
 # Then inside Claude Code:
 # ssh hazel "ls /rsstu/users/r/rrellan/tlaloc/nil_pipeline/"
+```
+
+### 5. Git Commands Must Go Through SSH
+
+Git does NOT work locally on the SMB mount (symlink/lock failures). All git
+commands must run via SSH using the HPC path:
+
+```bash
+ssh hazel "cd /rsstu/users/r/rrellan/tlaloc/nil_pipeline && git status"
+ssh hazel "cd /rsstu/users/r/rrellan/tlaloc/nil_pipeline && git add -A && git commit -m 'message'"
 ```
 
 ## Key Details
