@@ -1,0 +1,23 @@
+# Nextflow runtime
+nextflow/work/
+nextflow/.nextflow/
+nextflow/.nextflow.log*
+
+# Pipeline outputs
+results/
+
+# Generated DAG (regenerate with -preview -with-dag)
+nextflow/dag.svg
+
+# macOS
+.DS_Store
+._*
+
+# Large bioinformatics files
+*.maf
+*.sam
+*.bam
+*.fa
+*.fasta
+*.gfa
+*.fastq.gz

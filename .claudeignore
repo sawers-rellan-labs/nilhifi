@@ -1,0 +1,14 @@
+work/
+results/
+hifiasm/
+ragtag/
+anchorwave/
+raw/
+logs/
+*.maf
+*.sam
+*.bam
+*.fa
+*.fasta
+*.gfa
+*.fastq.gz
