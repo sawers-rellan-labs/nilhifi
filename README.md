@@ -126,3 +126,10 @@ causes LSF environment issues (missing `bsub`, `lsf.conf`).
 - **MAPQ>=60 filtering** on dotplot SAMs to remove multi-mapper noise
 - **Liftoff with `-copies`** for CNV detection at JMJ cluster
 - **AnchorWave optional** (`params.run_anchorwave = false` by default)
+- **`executor.perJobMemLimit = true`** — NCSU HPC sets `LSF_UNIT_FOR_LIMITS=GB`.
+  Without this flag, Nextflow's LSF executor divides the requested memory by the
+  number of CPUs for the `-M` (hard kill limit) directive, while `rusage[mem=]`
+  (reservation) gets the full amount. For example, a process requesting 32 GB
+  and 8 CPUs produces `-M 4 -R "rusage[mem=32]"` — LSF reserves 32 GB but kills
+  the process at 4 GB. Setting `perJobMemLimit = true` makes `-M` use the total
+  requested memory, matching the reservation.
