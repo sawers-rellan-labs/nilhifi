@@ -49,14 +49,14 @@ workflow {
     RAGTAG_SCAFFOLD_PT(scaffold_pt_in)
 
     // 5. Merge scaffoldings
-    // Collect both AGPs per sample and join with query FASTA
-    b73_agp = RAGTAG_SCAFFOLD_B73.out.map { sample, ref_name, agp, fasta -> tuple(sample, agp) }
-    pt_agp  = RAGTAG_SCAFFOLD_PT.out.map  { sample, ref_name, agp, fasta -> tuple(sample, agp) }
+    // Collect scaffold outputs (AGP + FASTA) per sample, staged into subdirs in merge
+    b73_scaffold = RAGTAG_SCAFFOLD_B73.out.map { sample, ref_name, agp, fasta -> tuple(sample, agp, fasta) }
+    pt_scaffold  = RAGTAG_SCAFFOLD_PT.out.map  { sample, ref_name, agp, fasta -> tuple(sample, agp, fasta) }
 
     merge_in = GFA_TO_FASTA.out
-        .join(b73_agp)
-        .join(pt_agp)
-    // merge_in: [sample, query_fa, agp_b73, agp_pt]
+        .join(b73_scaffold)
+        .join(pt_scaffold)
+    // merge_in: [sample, query_fa, agp_b73, fasta_b73, agp_pt, fasta_pt]
 
     RAGTAG_MERGE(merge_in)
 

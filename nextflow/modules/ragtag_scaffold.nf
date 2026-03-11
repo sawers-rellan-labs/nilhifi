@@ -3,8 +3,8 @@ process RAGTAG_SCAFFOLD {
     label 'assembly'
     publishDir "${params.outdir}/${sample}/scaffold/${ref_name}", mode: 'copy'
     cpus 8
-    memory '32 GB'
-    time '6h'
+    memory '128 GB'
+    time '8h'
 
     input:
     tuple val(sample), path(query_fa), val(ref_name), path(ref_fa)

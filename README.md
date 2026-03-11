@@ -118,6 +118,64 @@ before submitting.
 Running `nextflow run` interactively on a login node violates HPC AUP and
 causes LSF environment issues (missing `bsub`, `lsf.conf`).
 
+## Resource Utilization
+
+Observed memory usage from TMEX_inv4m run (maize ~2.3 Gb genome, ~47 Gb HiFi data).
+Peak memory sourced from LSF `.command.log` summaries and Nextflow `.command.trace` files
+in each task's work directory.
+
+| Process | CPUs | Memory (allocated) | Memory (LSF peak) | Memory (NF peak\_rss) | Wall time (allocated) | Wall time (actual) |
+|---------|------|--------------------|--------------------|-----------------------|-----------------------|--------------------|
+| MERGE\_FASTQ | 1 | 4 GB | ~5 MB | ~5 MB | 2h | ~38s |
+| HIFIASM | 16 | 64 GB | 48 GB | 48 GB | 16h | ~4.3h |
+| GFA\_TO\_FASTA | 1 | 4 GB | ~0.5 GB | ~0.5 GB | 30m | ~6s |
+| RAGTAG\_SCAFFOLD | 8 | 128 GB | 104–110 GB | 112–114 GB | 8h | ~1.8h |
+| RAGTAG\_MERGE | 4 | 16 GB | — | — | 2h | — |
+| LIFTOFF | 8 | 32 GB | — | — | 6h | — |
+| DOTPLOT\_MAP | 8 | 32 GB | — | — | 2h | — |
+| DOTPLOT\_PLOT | 1 | 8 GB | — | — | 1h | — |
+| ANCHORWAVE | 8 | 64 GB | — | — | 24h | — |
+
+Dashes indicate processes that have not yet completed a successful run.
+
+### Pipeline reports
+
+Nextflow generates HTML reports each run (overwritten on re-run):
+
+- **Execution report:** [`results/pipeline_info/report.html`](results/pipeline_info/report.html) — per-task resource usage, durations, status
+- **Timeline:** [`results/pipeline_info/timeline.html`](results/pipeline_info/timeline.html) — Gantt chart of task execution
+
+Per-sample copies are also written to `results/<sample>/pipeline_info/`.
+
+## Known Issues and Fixes
+
+### 1. RAGTAG\_MERGE filename collision (fixed)
+
+**Symptom:** `Process RAGTAG_MERGE input file name collision -- There are multiple input files for each of the following file names: ragtag.scaffold.agp`
+
+**Cause:** Both `RAGTAG_SCAFFOLD_B73` and `RAGTAG_SCAFFOLD_PT` emit identically-named
+output files (`ragtag.scaffold.agp`, `ragtag.scaffold.fasta`). When Nextflow staged
+both sets into the RAGTAG\_MERGE work directory, the names collided.
+
+**Fix:** RAGTAG\_MERGE now uses Nextflow's `path('subdir/filename')` input staging to
+place each scaffold's outputs into separate subdirectories (`scaffold_B73/` and
+`scaffold_PT/`). The `ragtag.py merge` command receives these directories as arguments,
+which is its expected input format. The main workflow was also updated to pass both AGP
+and FASTA files (not just AGP) from each scaffold to the merge process.
+
+**Affected files:** `nextflow/modules/ragtag_merge.nf`, `nextflow/main.nf`
+
+### 2. RAGTAG\_SCAFFOLD memory underprovisioned (fixed)
+
+**Symptom:** RAGTAG\_SCAFFOLD was originally allocated 32 GB but minimap2 (asm5 mode on
+maize-sized genomes) peaked at 104–114 GB. Tasks happened to succeed because the compute
+nodes had sufficient physical memory, but this is not guaranteed.
+
+**Fix:** Memory allocation increased from 32 GB to 128 GB (~12% headroom above the
+observed ~114 GB peak).
+
+**Affected file:** `nextflow/modules/ragtag_scaffold.nf`
+
 ## Key Design Decisions
 
 - **No `ragtag correct`** — misinterprets the Inv4m inversion as misassembly
