@@ -16,7 +16,7 @@ process RAGTAG_MERGE {
 
     script:
     """
-    ragtag.py merge -u -o merge_out ${query_fa} scaffold_B73 scaffold_PT
+    ragtag.py merge -u -o merge_out ${query_fa} scaffold_B73/ragtag.scaffold.agp scaffold_PT/ragtag.scaffold.agp
     cp merge_out/ragtag.merge.fasta .
     cp merge_out/ragtag.merge.agp .
     """
