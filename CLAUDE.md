@@ -1,5 +1,9 @@
 # NIL HiFi Assembly Pipeline
 
+## Suggested scripts rule
+
+When the user asks for bash commands and the result is multiline, **always write the commands to a script file** at `agent/suggested_script_<YYYYMMDD_HHMMSS>.sh` instead of just displaying them. Copy-pasting multiline commands from the Claude Code CLI terminal corrupts spaces and linebreaks. The user can then run `bash agent/suggested_script_<timestamp>.sh`.
+
 Nextflow pipeline for HiFi-based NIL assembly: hifiasm → ragtag scaffold (B73 + PT) → ragtag merge → liftoff → dotplots.
 
 ## Where to find logs

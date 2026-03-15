@@ -176,6 +176,42 @@ observed ~114 GB peak).
 
 **Affected file:** `nextflow/modules/ragtag_scaffold.nf`
 
+### 3. Nextflow cache invalidated after pipeline code changes
+
+**Symptom:** After fixing issues #1 and #2, re-running with `-resume` re-submitted
+HIFIASM from scratch (~4.3 h) instead of using the cached result from the previous
+successful run.
+
+**Cause:** The fixes changed `main.nf` and `ragtag_merge.nf`, producing a new pipeline
+revision (`825171e912` vs `75fa3f5b01`). Nextflow computes task cache hashes from the
+script content, inputs, and configuration. When `main.nf` changed (workflow wiring),
+the cache hashes for all tasks — including upstream tasks like HIFIASM whose process
+code did not change — no longer matched, invalidating the entire cache.
+
+**Impact:** The Mar-11 resumed run re-ran MERGE\_FASTQ and HIFIASM despite both having
+completed successfully in the Mar-03/04 runs. This added ~4.5 h of redundant compute.
+
+**Lesson:** When fixing downstream processes, be aware that changes to `main.nf` (the
+workflow block) can invalidate caches for all processes, not just the ones you modified.
+Consider testing workflow-level changes with `-preview` first.
+
+## Claude Code Setup (HPC)
+
+Claude Code requires sandbox configuration to interact with LSF on NCSU HPC.
+Run the setup script once (or after any settings reset), then restart Claude Code:
+
+```bash
+cd /rsstu/users/r/rrellan/tlaloc/nilhifi
+bash agent/fix_claude_settings.sh
+```
+
+This configures:
+- **`excludedCommands`** — LSF commands (`bsub`, `bjobs`, `bpeek`, `bhist`, `bkill`, `bqueues`) bypass the sandbox so they can write to `/tmp` and reach the LSF master
+- **`allowedDomains`** — Network access to `servlsf`, `10.1.16.42` (LSF master), and `github.com`
+- **`autoAllowBashIfSandboxed`** — Auto-approve bash commands within sandbox restrictions
+
+See [`agent/claude_hpc_setup_guide.md`](agent/claude_hpc_setup_guide.md) for full setup details (git identity, push authentication, debugging).
+
 ## Key Design Decisions
 
 - **No `ragtag correct`** — misinterprets the Inv4m inversion as misassembly
