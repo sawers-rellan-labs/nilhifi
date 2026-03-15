@@ -100,15 +100,26 @@ for (ref_name in c("B73", "PT")) {
   message(ref_name, " chr4 dominant scaffold: ", chr4_scf)
 
   d <- d[d$V1 == "chr4" & d$V3 == chr4_scf, ]
+  # Zoom to inversion region on reference axis
   d <- d[d$V2 >= 150e6 & d$V2 <= 220e6, ]
-  d <- d[d$V4 >= 125e6 & d$V4 <= 200e6, ]
+  # Compute robust query bounds (2-98th percentile) to match ref span as a square
+  q_lo <- as.numeric(quantile(d$V4, 0.02))
+  q_hi <- as.numeric(quantile(d$V4, 0.98))
+  d <- d[d$V4 >= q_lo & d$V4 <= q_hi, ]
   d$ref <- ref_name
   data_list[[ref_name]] <- d
+  message(ref_name, " chr4 zoom: ref 150-220 Mb, query ",
+          round(q_lo/1e6, 1), "-", round(q_hi/1e6, 1), " Mb (",
+          nrow(d), " points)")
 }
 
 if (length(data_list) == 2 && all(sapply(data_list, nrow) > 0)) {
   chr4 <- do.call(rbind, data_list)
   chr4$ref <- factor(chr4$ref, levels = c("B73", "PT"))
+
+  # Use shared query limits across both panels for comparability
+  q_min <- min(chr4$V4)
+  q_max <- max(chr4$V4)
 
   p4 <- ggplot(chr4, aes(x = V2, y = V4)) +
     geom_point(size = 0.5, aes(color = V5)) +
@@ -116,10 +127,10 @@ if (length(data_list) == 2 && all(sapply(data_list, nrow) > 0)) {
                        labels = c("+" = "collinear", "-" = "inverted")) +
     coord_fixed(ratio = 1) +
     facet_wrap(~ ref, ncol = 2) +
-    labs(x = "Reference chr4 position", y = paste0(opts$sample, " assembly (chr4)"),
+    labs(x = "Reference chr4 position", y = paste0(opts$sample, " assembly (chr4 scaffold)"),
          color = "Strand") +
     scale_x_continuous(labels = changetoM) +
-    scale_y_continuous(labels = changetoM) +
+    scale_y_continuous(labels = changetoM, limits = c(q_min, q_max)) +
     theme_minimal() +
     theme(
       panel.border = element_rect(fill = NA, color = "black", linewidth = 0.5),

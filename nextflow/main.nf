@@ -8,6 +8,7 @@ include { GFA_TO_FASTA      } from './modules/gfa_to_fasta'
 include { RAGTAG_SCAFFOLD as RAGTAG_SCAFFOLD_B73 } from './modules/ragtag_scaffold'
 include { RAGTAG_SCAFFOLD as RAGTAG_SCAFFOLD_PT  } from './modules/ragtag_scaffold'
 include { RAGTAG_MERGE      } from './modules/ragtag_merge'
+include { ORIENT_MERGED_SCAFFOLDS } from './modules/orient_merged_scaffolds'
 include { LIFTOFF           } from './modules/liftoff'
 include { DOTPLOT_MAP as DOTPLOT_MAP_B73 } from './modules/dotplot_map'
 include { DOTPLOT_MAP as DOTPLOT_MAP_PT  } from './modules/dotplot_map'
@@ -41,7 +42,6 @@ workflow {
     GFA_TO_FASTA(HIFIASM.out.gfa)
 
     // 4. Scaffold against B73 and PT (in parallel)
-    // Combine query FASTA with each reference
     scaffold_b73_in = GFA_TO_FASTA.out.map { sample, fa -> tuple(sample, fa, 'B73', ref_b73_fa) }
     scaffold_pt_in  = GFA_TO_FASTA.out.map { sample, fa -> tuple(sample, fa, 'PT',  ref_pt_fa)  }
 
@@ -49,26 +49,27 @@ workflow {
     RAGTAG_SCAFFOLD_PT(scaffold_pt_in)
 
     // 5. Merge scaffoldings
-    // Collect scaffold outputs (AGP + FASTA) per sample, staged into subdirs in merge
     b73_scaffold = RAGTAG_SCAFFOLD_B73.out.map { sample, ref_name, agp, fasta -> tuple(sample, agp, fasta) }
     pt_scaffold  = RAGTAG_SCAFFOLD_PT.out.map  { sample, ref_name, agp, fasta -> tuple(sample, agp, fasta) }
 
     merge_in = GFA_TO_FASTA.out
         .join(b73_scaffold)
         .join(pt_scaffold)
-    // merge_in: [sample, query_fa, agp_b73, fasta_b73, agp_pt, fasta_pt]
 
     RAGTAG_MERGE(merge_in)
 
-    // Merged FASTA for downstream steps: [sample, merged_fasta]
-    merged_fa = RAGTAG_MERGE.out.map { sample, fasta, agp -> tuple(sample, fasta) }
+    // 6. Orient scaffolds to B73 convention, rename to chr1..chr10, sort
+    ORIENT_MERGED_SCAFFOLDS(RAGTAG_MERGE.out, ref_b73_fa, ref_b73_gff)
 
-    // 6. Liftoff (B73 annotations → query)
-    LIFTOFF(merged_fa, ref_b73_fa, ref_b73_gff)
+    // Oriented FASTA for all downstream steps: [sample, oriented_fasta]
+    oriented_fa = ORIENT_MERGED_SCAFFOLDS.out.map { sample, fasta, table -> tuple(sample, fasta) }
 
-    // 7. CDS-based dotplots (B73 and PT, in parallel)
-    dotplot_b73_in = merged_fa.map { sample, fa -> tuple(sample, fa, 'B73', ref_b73_fa, ref_b73_gff) }
-    dotplot_pt_in  = merged_fa.map { sample, fa -> tuple(sample, fa, 'PT',  ref_pt_fa,  ref_pt_gff)  }
+    // 7. Liftoff (B73 annotations → query)
+    LIFTOFF(oriented_fa, ref_b73_fa, ref_b73_gff)
+
+    // 8. CDS-based dotplots (B73 and PT, in parallel)
+    dotplot_b73_in = oriented_fa.map { sample, fa -> tuple(sample, fa, 'B73', ref_b73_fa, ref_b73_gff) }
+    dotplot_pt_in  = oriented_fa.map { sample, fa -> tuple(sample, fa, 'PT',  ref_pt_fa,  ref_pt_gff)  }
 
     DOTPLOT_MAP_B73(dotplot_b73_in)
     DOTPLOT_MAP_PT(dotplot_pt_in)
@@ -78,14 +79,13 @@ workflow {
     tab_pt  = DOTPLOT_MAP_PT.out.map  { sample, ref_name, tab -> tuple(sample, tab) }
 
     plot_in = tab_b73.join(tab_pt)
-    // plot_in: [sample, tab_b73, tab_pt]
 
     DOTPLOT_PLOT(plot_in)
 
-    // 8. Optional: AnchorWave whole-genome alignment
+    // 9. AnchorWave whole-genome alignment
     if (params.run_anchorwave) {
-        aw_b73_in = merged_fa.map { sample, fa -> tuple(sample, fa, 'B73', ref_b73_fa, ref_b73_gff) }
-        aw_pt_in  = merged_fa.map { sample, fa -> tuple(sample, fa, 'PT',  ref_pt_fa,  ref_pt_gff)  }
+        aw_b73_in = oriented_fa.map { sample, fa -> tuple(sample, fa, 'B73', ref_b73_fa, ref_b73_gff) }
+        aw_pt_in  = oriented_fa.map { sample, fa -> tuple(sample, fa, 'PT',  ref_pt_fa,  ref_pt_gff)  }
 
         ANCHORWAVE_B73(aw_b73_in)
         ANCHORWAVE_PT(aw_pt_in)
