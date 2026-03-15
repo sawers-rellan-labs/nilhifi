@@ -41,6 +41,27 @@ TMEX_inv4m,/rsstu/.../TMEX_inv4m_bc2049.fastq.gz,/rsstu/.../TMEX_inv4m_bc2050.fa
 
 Each row is one genotype with two HiFi barcode FASTQs to merge.
 
+### Samples and raw data
+
+All HiFi FASTQs are on RSSTU (read-only):
+
+| Sample | Genotype ID | Barcode 1 | Barcode 2 | Total data | Directory |
+|--------|-------------|-----------|-----------|------------|-----------|
+| TMEX\_inv4m | TMEX | bc2049 (1.8G) | bc2050 (15G) | 16.8 GB | `Inv4mNILS/` |
+| BNI\_inv4m | Z031E0047 | bc2053 (4.3G) | bc2054 (9.6G) | 13.9 GB | `BDI_BNI_NILS/` |
+| BDI\_inv4m | Z031E0050 | bc2055 (7.1G) | bc2056 (12G) | 19.1 GB | `BDI_BNI_NILS/` |
+
+Raw data base path: `/rsstu/users/r/rrellan/sara/DNA_Sequencing_raw/`
+
+The previous bash-based pipeline (Mi21, Z031E0047/bc2051+bc2052, 12 GB total) is at
+`/rsstu/users/r/rrellan/DOE_CAREER/inv4m/nilhifimi21/`. Runtime estimates for this
+pipeline are based on that run.
+
+All three samples are maize NILs with ~2.3 Gb genomes. Data volumes are comparable,
+so the current resource allocations (HIFIASM 64 GB, RAGTAG\_SCAFFOLD 128 GB) should
+be sufficient for all samples. BDI is the largest at 19.1 GB but still well within
+the headroom observed for TMEX (HIFIASM peaked at 48 GB / 64 GB allocated).
+
 ### Reference genomes
 
 | Reference | Files |
@@ -139,6 +160,24 @@ in each task's work directory.
 | ANCHORWAVE | 8 | 64 GB | — | — | 24h | — |
 
 Dashes indicate processes that have not yet completed a successful run.
+
+### Expected runtimes (from Mi21 bash-based run)
+
+The previous bash pipeline for Mi21 (12 GB HiFi, same references) provides runtime
+baselines for the steps that have not yet completed in the Nextflow pipeline:
+
+| Process | Mi21 runtime | Notes |
+|---------|-------------|-------|
+| RAGTAG\_MERGE | ~10 sec | Trivial merge of two AGPs |
+| LIFTOFF | ~23 min | 8 cores |
+| DOTPLOT\_MAP (B73) | ~27 min | CDS mapping + filtering |
+| DOTPLOT\_MAP (PT) | ~30 min | PT has more CDS anchors (39k vs 33k) |
+| DOTPLOT\_PLOT | < 5 min | R/ggplot2, lightweight |
+| ANCHORWAVE (B73) | ~27 min | proali whole-genome alignment |
+| ANCHORWAVE (PT) | ~5 hours | Slower due to larger PT CDS set |
+
+Critical path: RAGTAG\_MERGE → then LIFTOFF, DOTPLOT\_MAP, ANCHORWAVE run in parallel
+→ DOTPLOT\_PLOT waits for both DOTPLOT\_MAPs. AnchorWave PT is the long pole at ~5 hours.
 
 ### Pipeline reports
 
