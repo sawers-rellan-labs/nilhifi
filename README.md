@@ -25,8 +25,9 @@ barcode2.fq.gz ─┘                                 │
                                                           ▼
                                                     DOTPLOT_PLOT
                                                           │
-                                              (optional)  ▼
-                                              ANCHORWAVE_B73 / ANCHORWAVE_PT
+                                           ┌──────────────┴──────────────┐
+                                           ▼                             ▼
+                                    ANCHORWAVE_B73                ANCHORWAVE_PT
 ```
 
 ## Input
@@ -49,9 +50,13 @@ Each row is one genotype with two HiFi barcode FASTQs to merge.
 
 Paths configured in `nextflow.config` under `params.ref_*`.
 
+**Note:** The PT FASTA uses `PT01`–`PT10` chromosome names while the PT GFF uses
+`chr1`–`chr10`. The DOTPLOT\_MAP and ANCHORWAVE modules automatically rename the
+FASTA headers (`PT01→chr1`, etc.) to match the GFF before processing.
+
 ## Output
 
-Base directory: `params.outdir` (default: `/rsstu/users/r/rrellan/tlaloc/nil_pipeline/results`)
+Base directory: `params.outdir` (default: `/rsstu/users/r/rrellan/tlaloc/nilhifi/results`)
 
 ```
 results/
@@ -82,7 +87,7 @@ results/
 │   │   ├── {sample}_dotplot_vs_PT.svg
 │   │   ├── {sample}_chr4_inv4m_dotplot.pdf # Inv4m zoom comparison
 │   │   └── {sample}_chr4_inv4m_dotplot.svg
-│   └── anchorwave/                         # only if params.run_anchorwave = true
+│   └── anchorwave/
 │       ├── vs_B73/
 │       │   ├── {sample}_vs_B73.maf
 │       │   ├── {sample}_vs_B73.f.maf
@@ -103,16 +108,13 @@ job (1 CPU, 8 GB) and submits the actual compute jobs to LSF:
 
 ```bash
 # On HPC
-cd /rsstu/users/r/rrellan/tlaloc/nil_pipeline/nextflow
-bsub < run_nil_pipeline.sh
+cd /rsstu/users/r/rrellan/tlaloc/nilhifi/nextflow
+bsub < run_nil_assembly_pipeline.sh
 
 # Monitor
 bjobs          # check orchestrator + child jobs
 bpeek <jobid>  # view Nextflow stdout in real time
 ```
-
-To enable AnchorWave, edit `nextflow.config` and set `params.run_anchorwave = true`
-before submitting.
 
 **Do NOT run Nextflow directly on the login node** — use the wrapper script.
 Running `nextflow run` interactively on a login node violates HPC AUP and
@@ -195,6 +197,44 @@ completed successfully in the Mar-03/04 runs. This added ~4.5 h of redundant com
 workflow block) can invalidate caches for all processes, not just the ones you modified.
 Consider testing workflow-level changes with `-preview` first.
 
+### 4. RAGTAG\_MERGE received directories instead of AGP files (fixed 2026-03-15)
+
+**Symptom:** `ValueError: Input AGPs do not have the same set of components.`
+
+**Cause:** `ragtag.py merge` was called with directory arguments (`scaffold_B73 scaffold_PT`)
+instead of explicit AGP file paths. When given a directory, ragtag merge parses files
+differently than when given AGP paths directly, leading to a component set mismatch error
+even though both AGPs contained identical contig sets.
+
+**Root cause found by:** Comparing with the working bash implementation in
+`/rsstu/users/r/rrellan/DOE_CAREER/inv4m/nilhifimi21/scripts/build_scaffold.sh`,
+which passes AGP file paths explicitly.
+
+**Fix:** Changed the merge command from:
+```
+ragtag.py merge -u -o merge_out query.fa scaffold_B73 scaffold_PT
+```
+to:
+```
+ragtag.py merge -u -o merge_out query.fa scaffold_B73/ragtag.scaffold.agp scaffold_PT/ragtag.scaffold.agp
+```
+
+**Affected file:** `nextflow/modules/ragtag_merge.nf`
+
+### 5. Output directory pointed to old project path (fixed 2026-03-15)
+
+**Symptom:** Pipeline reports (`report.html`, `timeline.html`) written to
+`/rsstu/users/r/rrellan/tlaloc/nil_pipeline/results/` instead of the current
+project directory.
+
+**Cause:** `params.outdir` in `nextflow.config` still pointed to the old
+`nil_pipeline` path from before the project was reorganized into `nilhifi`.
+
+**Fix:** Updated `params.outdir` to `/rsstu/users/r/rrellan/tlaloc/nilhifi/results`.
+Copied the Mar-11 report files to the new location.
+
+**Affected file:** `nextflow/nextflow.config`
+
 ## Claude Code Setup (HPC)
 
 Claude Code requires sandbox configuration to interact with LSF on NCSU HPC.
@@ -219,7 +259,7 @@ See [`agent/claude_hpc_setup_guide.md`](agent/claude_hpc_setup_guide.md) for ful
 - **Dual-reference scaffolding** — B73 (NIL background) + PT (Inv4m arrangement)
 - **MAPQ>=60 filtering** on dotplot SAMs to remove multi-mapper noise
 - **Liftoff with `-copies`** for CNV detection at JMJ cluster
-- **AnchorWave optional** (`params.run_anchorwave = false` by default)
+- **AnchorWave enabled** — whole-genome alignment against B73 and PT for synteny analysis
 - **`executor.perJobMemLimit = true`** — NCSU HPC sets `LSF_UNIT_FOR_LIMITS=GB`.
   Without this flag, Nextflow's LSF executor divides the requested memory by the
   number of CPUs for the `-M` (hard kill limit) directive, while `rusage[mem=]`

@@ -9,7 +9,7 @@
 
 # NIL assembly pipeline orchestrator
 # Run from: /rsstu/users/r/rrellan/tlaloc/nilhifi/nextflow/
-# Usage: cd /rsstu/users/r/rrellan/tlaloc/nilhifi/nextflow && bsub < run_nil_pipeline.sh
+# Usage: cd /rsstu/users/r/rrellan/tlaloc/nilhifi/nextflow && bsub < run_nil_assembly_pipeline.sh
 
 source ~/.bashrc
 conda activate /share/maize/frodrig4/conda/env/nextflow
