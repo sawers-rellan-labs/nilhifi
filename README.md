@@ -5,31 +5,24 @@ scaffolding, annotation, and dotplot visualization on NCSU HPC (LSF).
 
 ## Pipeline Overview
 
-```
-barcode1.fq.gz ─┐
-                 ├─→ MERGE_FASTQ → HIFIASM → GFA_TO_FASTA
-barcode2.fq.gz ─┘                                 │
-                                       ┌───────────┴───────────┐
-                                       ▼                       ▼
-                              RAGTAG_SCAFFOLD_B73    RAGTAG_SCAFFOLD_PT
-                                       │                       │
-                                       └─────────┬─────────────┘
-                                                  ▼
-                                            RAGTAG_MERGE
-                                                  ▼
-                                    ORIENT_MERGED_SCAFFOLDS
-                                                  │
-                                  ┌───────────────┼───────────────┐
-                                  ▼               ▼               ▼
-                              LIFTOFF    DOTPLOT_MAP_B73   DOTPLOT_MAP_PT
-                                                  │               │
-                                                  └───────┬───────┘
-                                                          ▼
-                                                    DOTPLOT_PLOT
-                                                          │
-                                           ┌──────────────┴──────────────┐
-                                           ▼                             ▼
-                                    ANCHORWAVE_B73                ANCHORWAVE_PT
+```mermaid
+graph TD
+    BC1[barcode1.fq.gz] --> MERGE[MERGE_FASTQ]
+    BC2[barcode2.fq.gz] --> MERGE
+    MERGE --> HIFIASM
+    HIFIASM --> GFA[GFA_TO_FASTA]
+    GFA --> SCAFFOLD_B73[RAGTAG_SCAFFOLD_B73]
+    GFA --> SCAFFOLD_PT[RAGTAG_SCAFFOLD_PT]
+    SCAFFOLD_B73 --> MERGE_SCAF[RAGTAG_MERGE]
+    SCAFFOLD_PT --> MERGE_SCAF
+    MERGE_SCAF --> ORIENT[ORIENT_MERGED_SCAFFOLDS]
+    ORIENT --> LIFTOFF
+    ORIENT --> DOTPLOT_B73[DOTPLOT_MAP_B73]
+    ORIENT --> DOTPLOT_PT[DOTPLOT_MAP_PT]
+    DOTPLOT_B73 --> DOTPLOT_PLOT
+    DOTPLOT_PT --> DOTPLOT_PLOT
+    ORIENT --> AW_B73[ANCHORWAVE_B73]
+    ORIENT --> AW_PT[ANCHORWAVE_PT]
 ```
 
 ## Input
