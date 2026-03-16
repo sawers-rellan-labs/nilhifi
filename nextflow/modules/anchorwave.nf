@@ -3,7 +3,7 @@ process ANCHORWAVE {
     label 'anchorwave'
     publishDir "${params.outdir}/${sample}/anchorwave/vs_${ref_name}", mode: 'copy'
     cpus 8
-    memory '64 GB'
+    memory '128 GB'
     time '24h'
 
     input:
