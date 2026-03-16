@@ -16,6 +16,8 @@ barcode2.fq.gz ─┘                                 │
                                        └─────────┬─────────────┘
                                                   ▼
                                             RAGTAG_MERGE
+                                                  ▼
+                                    ORIENT_MERGED_SCAFFOLDS
                                                   │
                                   ┌───────────────┼───────────────┐
                                   ▼               ▼               ▼
@@ -147,19 +149,24 @@ Observed memory usage from TMEX_inv4m run (maize ~2.3 Gb genome, ~47 Gb HiFi dat
 Peak memory sourced from LSF `.command.log` summaries and Nextflow `.command.trace` files
 in each task's work directory.
 
-| Process | CPUs | Memory (allocated) | Memory (LSF peak) | Memory (NF peak\_rss) | Wall time (allocated) | Wall time (actual) |
-|---------|------|--------------------|--------------------|-----------------------|-----------------------|--------------------|
-| MERGE\_FASTQ | 1 | 4 GB | ~5 MB | ~5 MB | 2h | ~38s |
-| HIFIASM | 16 | 64 GB | 48 GB | 48 GB | 16h | ~4.3h |
-| GFA\_TO\_FASTA | 1 | 4 GB | ~0.5 GB | ~0.5 GB | 30m | ~6s |
-| RAGTAG\_SCAFFOLD | 8 | 128 GB | 104–110 GB | 112–114 GB | 8h | ~1.8h |
-| RAGTAG\_MERGE | 4 | 16 GB | — | — | 2h | — |
-| LIFTOFF | 8 | 32 GB | — | — | 6h | — |
-| DOTPLOT\_MAP | 8 | 32 GB | — | — | 2h | — |
-| DOTPLOT\_PLOT | 1 | 8 GB | — | — | 1h | — |
-| ANCHORWAVE | 8 | 64 GB | — | — | 24h | — |
+| Process | CPUs | Memory (allocated) | Memory (LSF peak) | Wall time (allocated) | Wall time (actual) |
+|---------|------|--------------------|--------------------|-----------------------|--------------------|
+| MERGE\_FASTQ | 1 | 4 GB | ~5 MB | 2h | ~38s |
+| HIFIASM | 16 | 64 GB | 48 GB | 16h | ~4.3h |
+| GFA\_TO\_FASTA | 1 | 4 GB | ~0.5 GB | 30m | ~6s |
+| RAGTAG\_SCAFFOLD | 8 | 128 GB | 104–110 GB | 8h | ~1.8h |
+| RAGTAG\_MERGE | 4 | 16 GB | 16 GB | 2h | ~36s |
+| ORIENT\_MERGED\_SCAFFOLDS | 8 | 32 GB | — | 2h | ~35s (standalone test) |
+| LIFTOFF | 8 | 32 GB | 19 GB | 6h | ~37m |
+| DOTPLOT\_MAP (B73) | 8 | 32 GB | 16 GB | 2h | ~4m |
+| DOTPLOT\_MAP (PT) | 8 | 32 GB | 17 GB | 2h | ~6m |
+| DOTPLOT\_PLOT | 1 | 8 GB | — | 1h | ~54s |
+| ANCHORWAVE (B73) | 8 | 64 GB | 83 GB | 24h | ~67m |
+| ANCHORWAVE (PT) | 8 | 64 GB | — | 24h | — |
 
-Dashes indicate processes that have not yet completed a successful run.
+Note: ANCHORWAVE\_B73 exceeded its 64 GB allocation (peaked at 83 GB) but was not killed
+by LSF on this cluster. ORIENT\_MERGED\_SCAFFOLDS runtime is from standalone test (Python
+only, no CDS mapping); the Nextflow module also runs anchorwave gff2seq + minimap2.
 
 ### Expected runtimes (from Mi21 bash-based run)
 

@@ -6,6 +6,10 @@ When the user asks for bash commands and the result is multiline, **always write
 
 Nextflow pipeline for HiFi-based NIL assembly: hifiasm → ragtag scaffold (B73 + PT) → ragtag merge → liftoff → dotplots.
 
+## LSF notes
+
+Memory in `#BSUB -R "rusage[mem=X]"` is in **gigabytes**, not megabytes. Use `mem=8` for 8 GB, not `mem=8000`.
+
 ## Where to find logs
 
 ### Per-task resource usage (memory, CPU, runtime)
