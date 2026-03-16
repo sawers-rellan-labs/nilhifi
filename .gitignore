@@ -10,8 +10,16 @@ nextflow/nil_pipeline_*.err
 # Pipeline outputs
 results/
 
-# Generated DAG (regenerate with -preview -with-dag)
+# Generated DAGs (regenerate with -preview -with-dag)
 nextflow/dag.svg
+nextflow/dag_dryrun.svg
+
+# Claude Code / MCP local config
+.claude/agents
+.claude/commands
+.claude/skills
+.claude/settings.json.bak
+.mcp.json
 
 # Agent documentation (internal, not versioned)
 agent/
