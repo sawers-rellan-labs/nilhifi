@@ -1,15 +1,17 @@
 #!/bin/bash
 #BSUB -J nil_pipeline
-#BSUB -o nil_pipeline_%J.out
-#BSUB -e nil_pipeline_%J.err
+#BSUB -o /rsstu/users/r/rrellan/tlaloc/nilhifi/results/log/nil_pipeline_%J.out
+#BSUB -e /rsstu/users/r/rrellan/tlaloc/nilhifi/results/log/nil_pipeline_%J.err
 #BSUB -n 1
-#BSUB -R "rusage[mem=8GB]"
+#BSUB -R "rusage[mem=8]"
 #BSUB -W 48:00
 #BSUB -q sara
 
 # NIL assembly pipeline orchestrator
 # Run from: /rsstu/users/r/rrellan/tlaloc/nilhifi/nextflow/
 # Usage: cd /rsstu/users/r/rrellan/tlaloc/nilhifi/nextflow && bsub < run_nil_assembly_pipeline.sh
+
+mkdir -p /rsstu/users/r/rrellan/tlaloc/nilhifi/results/log
 
 source ~/.bashrc
 conda activate /share/maize/frodrig4/conda/env/nextflow
