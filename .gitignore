@@ -24,6 +24,27 @@ nextflow/dag_dryrun.svg
 # Agent documentation (internal, not versioned)
 agent/
 
+# VS Code / IDE artifacts
+.vscode/
+.idea/
+
+# Shell dotfiles (VS Code Remote SSH syncs these)
+.bash_profile
+.bashrc
+.zshrc
+.zprofile
+.profile
+.gitconfig
+.ripgreprc
+
+# Git internals leaked to worktree (VS Code SSH bug)
+/HEAD
+/config
+/hooks
+/refs
+/objects
+.gitmodules
+
 # macOS
 .DS_Store
 ._*
