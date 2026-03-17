@@ -84,34 +84,48 @@ def main():
             if b73_chr in chrlevels and strand in ('+', '-'):
                 counts[scaffold][b73_chr][strand] += 1
 
-    # For each scaffold, find dominant B73 chromosome
+    # For each B73 chromosome, find the scaffold with the most CDS hits.
+    # This avoids chimeric scaffolds stealing chromosome assignments with
+    # trivial hit counts (e.g. 3 hits) when a better scaffold exists.
+    MIN_ANCHORS = 50
+
+    # Build per-chromosome candidate list: chr -> [(scaffold, hits)]
+    chr_candidates = defaultdict(list)
+    for scf, chr_counts in counts.items():
+        for b73_chr in chrlevels:
+            t = chr_counts[b73_chr]['+'] + chr_counts[b73_chr]['-']
+            if t >= MIN_ANCHORS:
+                chr_candidates[b73_chr].append((scf, t))
+
+    # Sort each chromosome's candidates by hit count descending
+    for b73_chr in chr_candidates:
+        chr_candidates[b73_chr].sort(key=lambda x: -x[1])
+
+    # Assign: for each chromosome (in order of best candidate strength),
+    # pick the top scaffold that hasn't been claimed yet
     assignments = {}  # scaffold -> (b73_chr, total_hits, plus, minus, flip)
     used_chrs = set()
+    used_scfs = set()
 
-    # Sort scaffolds by total hit count (greedy assignment)
-    scaffold_totals = []
-    for scf, chr_counts in counts.items():
-        total = sum(c['+'] + c['-'] for c in chr_counts.values())
-        scaffold_totals.append((scf, total))
-    scaffold_totals.sort(key=lambda x: -x[1])
+    # Prioritise chromosomes whose best candidate has the most hits
+    chr_order = sorted(chrlevels,
+                       key=lambda c: chr_candidates[c][0][1] if chr_candidates[c] else 0,
+                       reverse=True)
 
-    for scf, _ in scaffold_totals:
-        # Find best B73 chromosome not yet assigned
-        best_chr = None
-        best_total = 0
-        for b73_chr in chrlevels:
-            if b73_chr in used_chrs:
+    for b73_chr in chr_order:
+        for scf, t in chr_candidates[b73_chr]:
+            if scf in used_scfs:
                 continue
-            t = counts[scf][b73_chr]['+'] + counts[scf][b73_chr]['-']
-            if t > best_total:
-                best_total = t
-                best_chr = b73_chr
-        if best_chr and best_total > 0:
-            plus = counts[scf][best_chr]['+']
-            minus = counts[scf][best_chr]['-']
+            plus = counts[scf][b73_chr]['+']
+            minus = counts[scf][b73_chr]['-']
             flip = minus > plus
-            assignments[scf] = (best_chr, best_total, plus, minus, flip)
-            used_chrs.add(best_chr)
+            assignments[scf] = (b73_chr, t, plus, minus, flip)
+            used_chrs.add(b73_chr)
+            used_scfs.add(scf)
+            break
+        else:
+            print(f"  WARNING: no scaffold with >= {MIN_ANCHORS} anchors for {b73_chr}",
+                  file=sys.stderr)
 
     # Read assembly FASTA
     print(f"Reading {args.fasta}...", file=sys.stderr)

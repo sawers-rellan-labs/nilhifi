@@ -3,7 +3,7 @@ process RAGTAG_SCAFFOLD {
     label 'assembly'
     publishDir "${params.outdir}/${sample}/scaffold/${ref_name}", mode: 'copy'
     cpus 8
-    memory '128 GB'
+    memory '192 GB'
     time '8h'
 
     input:

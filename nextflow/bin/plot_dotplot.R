@@ -7,12 +7,20 @@ library(ggplot2)
 library(svglite)
 
 option_list <- list(
-  make_option("--sample",  type = "character", help = "Sample name"),
-  make_option("--tab_b73", type = "character", help = "Dotplot tab file vs B73"),
-  make_option("--tab_pt",  type = "character", help = "Dotplot tab file vs PT"),
-  make_option("--outdir",  type = "character", default = ".", help = "Output directory")
+  make_option("--sample",    type = "character", help = "Sample name"),
+  make_option("--tab_b73",   type = "character", help = "Dotplot tab file vs B73"),
+  make_option("--tab_ref2",  type = "character", help = "Dotplot tab file vs ref2"),
+  make_option("--tab_pt",    type = "character", help = "[deprecated] Alias for --tab_ref2"),
+  make_option("--ref2_name", type = "character", default = "PT", help = "Name of second reference"),
+  make_option("--outdir",    type = "character", default = ".", help = "Output directory")
 )
 opts <- parse_args(OptionParser(option_list = option_list))
+
+# Support both --tab_pt (legacy) and --tab_ref2 (new)
+if (is.null(opts$tab_ref2) && !is.null(opts$tab_pt)) {
+  opts$tab_ref2 <- opts$tab_pt
+}
+ref2 <- opts$ref2_name
 
 changetoM <- function(position) {
   paste0(position / 1e6, "M")
@@ -33,8 +41,8 @@ find_dominant_scaffold <- function(data) {
 
 # --- Whole-genome dotplots ---
 
-for (ref_name in c("B73", "PT")) {
-  tab_file <- if (ref_name == "B73") opts$tab_b73 else opts$tab_pt
+for (ref_name in c("B73", ref2)) {
+  tab_file <- if (ref_name == "B73") opts$tab_b73 else opts$tab_ref2
   if (is.null(tab_file) || !file.exists(tab_file)) {
     message("Skipping ", ref_name, ": file not found")
     next
@@ -86,11 +94,11 @@ for (ref_name in c("B73", "PT")) {
   message("Saved: ", outbase, ".pdf/.svg")
 }
 
-# --- Chr4 zoom: side-by-side B73 vs PT ---
+# --- Chr4 zoom: side-by-side B73 vs ref2 ---
 
 data_list <- list()
-for (ref_name in c("B73", "PT")) {
-  tab_file <- if (ref_name == "B73") opts$tab_b73 else opts$tab_pt
+for (ref_name in c("B73", ref2)) {
+  tab_file <- if (ref_name == "B73") opts$tab_b73 else opts$tab_ref2
   if (is.null(tab_file) || !file.exists(tab_file)) next
   d <- read.table(tab_file)
 
@@ -115,7 +123,7 @@ for (ref_name in c("B73", "PT")) {
 
 if (length(data_list) == 2 && all(sapply(data_list, nrow) > 0)) {
   chr4 <- do.call(rbind, data_list)
-  chr4$ref <- factor(chr4$ref, levels = c("B73", "PT"))
+  chr4$ref <- factor(chr4$ref, levels = c("B73", ref2))
 
   # Use shared query limits across both panels for comparability
   q_min <- min(chr4$V4)

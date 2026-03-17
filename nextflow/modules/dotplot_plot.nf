@@ -7,17 +7,19 @@ process DOTPLOT_PLOT {
     time '1h'
 
     input:
-    tuple val(sample), path(tab_b73), path(tab_pt)
+    tuple val(sample), path(tab_b73), path(tab_ref2)
 
     output:
     tuple val(sample), path("*.pdf"), path("*.svg")
 
     script:
+    def ref2_name = (tab_ref2.name =~ /dotplot_vs_(.+)\.tab/)[0][1]
     """
     Rscript ${projectDir}/bin/plot_dotplot.R \
       --sample ${sample} \
       --tab_b73 ${tab_b73} \
-      --tab_pt ${tab_pt} \
+      --tab_ref2 ${tab_ref2} \
+      --ref2_name ${ref2_name} \
       --outdir .
     """
 }

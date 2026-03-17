@@ -15,6 +15,13 @@ process RAGTAG_MERGE {
     tuple val(sample), path("ragtag.merge.fasta"), path("ragtag.merge.agp")
 
     script:
+    if (params.skip_merge_samples?.contains(sample))
+    """
+    echo "Skipping merge for ${sample} — using B73-only scaffold"
+    cp scaffold_B73/ragtag.scaffold.fasta ragtag.merge.fasta
+    cp scaffold_B73/ragtag.scaffold.agp ragtag.merge.agp
+    """
+    else
     """
     ragtag.py merge -u -o merge_out ${query_fa} scaffold_B73/ragtag.scaffold.agp scaffold_PT/ragtag.scaffold.agp
     cp merge_out/ragtag.merge.fasta .
