@@ -1,224 +1,203 @@
 # 4-Genome Production Run — ETA & Resource Analysis
 
-**Submitted:** 18:32 EDT, Monday March 16, 2026
-**Job ID:** 467191 (orchestrator on sara)
+**Original submission:** 19:28 EDT, Monday March 16, 2026
+**Orchestrator job:** 467654 (sara queue)
 **Samples:** TMEX_NIL, MI21_NIL, BNI_NIL, BDI_NIL
 
 ---
 
-## 1. Current HPC Resource Snapshot
+## 1. HPC Resource Snapshot
 
-| Resource | Value |
-|----------|-------|
-| sara queue MAX slots | 32 (queue-wide, shared across all users) |
-| ntanduk jobs (running since Mar 11) | 2 jobs: 8 cores + 1 core = **9 slots** |
-| Orchestrator (nil_pipeline) | **1 slot** |
-| **Available for child jobs** | **22 slots** |
+| Resource | At submission (Mar 16) | Current (Mar 17 ~19:00) |
+|----------|----------------------|------------------------|
+| sara queue MAX slots | 32 | 32 |
+| ntanduk jobs | 9 slots (since Mar 11) | likely finished (not visible in bjobs) |
+| Orchestrator | 1 slot | 1 slot |
+| **Available for child jobs** | **22 slots** | **~31 slots** |
 
 ### Effective parallelism by process type
 
-| Process cores | Max concurrent jobs | Slots used | Idle slots |
-|---------------|---------------------|------------|------------|
-| 16 (HIFIASM) | **1** | 16 | 6 |
-| 8 (RAGTAG, ORIENT, LIFTOFF, DOTPLOT_MAP, ANCHORWAVE) | **2** | 16 | 6 |
-| 4 (RAGTAG_MERGE) | 5 | 20 | 2 |
-| 1 (MERGE_FASTQ, GFA_TO_FASTA, DOTPLOT_PLOT) | 22 | 22 | 0 |
-
-**Key constraint:** HIFIASM (16 cores) runs 1 at a time. No 8-core job fits alongside it (16 + 8 = 24 > 22).
+| Process cores | At 22 slots | At 31 slots |
+|---------------|------------|------------|
+| 16 (HIFIASM) | 1 concurrent | 1 concurrent |
+| 8 (RAGTAG, ORIENT, LIFTOFF, DOTPLOT_MAP, ANCHORWAVE) | 2 concurrent | **3 concurrent** |
+| 4 (RAGTAG_MERGE) | 5 | 7 |
+| 1 (MERGE_FASTQ, GFA_TO_FASTA, DOTPLOT_PLOT) | 22 | 31 |
 
 ---
 
-## 2. Per-Process Resource Requirements & Known Runtimes
+## 2. Per-Process Resource Requirements — Actuals from 4-Genome Run
 
-Sources: TMEX actual run (handover_full_run.md), MI21 benchmark (resource_estimates_nil_pipeline.md).
+Updated with measured values. Replaces initial estimates.
 
-| Process | CPUs | Memory (alloc) | Memory (actual) | Runtime (est.) | Notes |
-|---------|------|----------------|-----------------|----------------|-------|
-| MERGE_FASTQ | 1 | 4 GB | ~5 MB | ~38s | I/O only |
-| HIFIASM | 16 | 64 GB | 33 GB | 3.4–5.5h | Scales linearly with FASTQ size |
-| GFA_TO_FASTA | 1 | 4 GB | ~0.5 GB | ~6s | |
-| RAGTAG_SCAFFOLD (×2/sample) | 8 | 128 GB | 104–110 GB | ~1.8h | Memory-bound (minimap2 index) |
-| RAGTAG_MERGE | 4 | 16 GB | 16 GB | ~36s | |
-| ORIENT_MERGED_SCAFFOLDS | 8 | 32 GB | ~10 GB | ~15m | |
-| LIFTOFF | 8 | 32 GB | 19 GB | ~37m | |
-| DOTPLOT_MAP (×2/sample) | 8 | 32 GB | 16–17 GB | ~4–6m | |
-| DOTPLOT_PLOT | 1 | 8 GB | <1 GB | ~54s | |
-| ANCHORWAVE_B73 | 8 | 128 GB | 83 GB | ~67m | Exceeds 64 GB alloc; bumped to 128 GB |
-| ANCHORWAVE_PT | 8 | 128 GB | TBD | ~5h | Long pole of entire pipeline |
-
----
-
-## 3. Per-Sample HIFIASM Estimates
-
-HIFIASM scales linearly with input FASTQ size at ~0.24h per 1x coverage (16 cores).
-
-| Sample | FASTQ total | Est. coverage | Est. HIFIASM time |
-|--------|-------------|---------------|-------------------|
-| MI21_NIL | 11.8 GB | ~14x | **3.4h** |
-| BNI_NIL | 13.9 GB | ~17x | **4.0h** |
-| TMEX_NIL | 15.8 GB | ~19x | **4.3h** (measured) |
-| BDI_NIL | 19.0 GB | ~23x | **5.5h** |
-| **Sum (serialized)** | | | **17.2h** |
+| Process | CPUs | Mem (alloc) | Mem (actual range) | Runtime (range) | CPU eff. | Notes |
+|---------|------|-------------|-------------------|-----------------|----------|-------|
+| MERGE_FASTQ | 1 | 4 GB | <1 GB | 69–118s | — | I/O only (cat) |
+| HIFIASM | 16 | 64 GB | 33–46 GB | 2.7–4.7h | 0.88–0.93 | Scales with FASTQ size |
+| GFA_TO_FASTA | 1 | 4 GB | <1 GB | 12–39s | — | Trivial |
+| RAGTAG_SCAFFOLD (×2) | 8 | **192 GB** | 66–144 GB | 0.9–3.3h | ~0.54 | BDI exceeded 128 GB; bumped |
+| RAGTAG_MERGE | 4 | 16 GB | <1 GB | 33–64s | — | BDI now skips merge |
+| ORIENT | 8 | 32 GB | 12–25 GB | ~4 min | 0.57–0.60 | |
+| LIFTOFF | 8 | 32 GB | 18–20 GB | 25–27 min | 0.60–0.62 | |
+| DOTPLOT_MAP (×2) | 8 | 32 GB | 11–13 GB | 4–5 min | 0.50–0.75 | |
+| DOTPLOT_PLOT | 1 | 8 GB | <1 GB | 41–63s | — | Single-threaded R |
+| ANCHORWAVE_B73 | 8 | 128 GB | 83 GB (TMEX) | ~67 min | — | Others pending |
+| ANCHORWAVE_REF2 | 8 | 128 GB | TBD | ~5h (est.) | — | Long pole |
 
 ---
 
-## 4. Phase-by-Phase Timeline
+## 3. HIFIASM Actuals (all faster than estimated)
 
-### Phase 1: MERGE_FASTQ (T+0 to T+0.02h)
-
-All 4 samples run in parallel (4 cores). Done in ~1 minute.
-
-### Phase 2: HIFIASM — serialized (T+0 to T+17.2h)
-
-Only 1 HIFIASM fits (16 + 1 orch + 9 ntanduk = 26 of 32 slots). The remaining 6 slots sit idle — no 8-core job fits alongside.
-
-Each completed sample's GFA_TO_FASTA runs instantly (1 core), but RAGTAG_SCAFFOLD (8 cores) is blocked until the HIFIASM phase ends.
-
-Assuming submission order TMEX → MI21 → BNI → BDI:
-
-| Job | Start (clock) | End (clock) | Duration |
-|-----|---------------|-------------|----------|
-| HIFIASM TMEX | Mon 18:33 | Mon 22:51 | 4.3h |
-| HIFIASM MI21 | Mon 22:51 | Tue 02:15 | 3.4h |
-| HIFIASM BNI | Tue 02:15 | Tue 06:15 | 4.0h |
-| HIFIASM BDI | Tue 06:15 | Tue 11:45 | 5.5h |
-
-**All HIFIASM complete: ~Tue 11:45 EDT**
-
-### Phase 3: RAGTAG — pipelined, 2 slots (T+17.2h to T+25.5h)
-
-After HIFIASM, 22 slots are free. 2 × 8-core jobs run concurrently. Each sample's RAGTAG_B73 + RAGTAG_PT fill both slots for 1.8h.
-
-RAGTAG jobs were submitted right after each sample's HIFIASM finished — they've been pending for hours and take priority over post-ORIENT jobs from earlier samples.
-
-**This causes an important scheduling effect:** RAGTAG for all 4 samples runs before any post-RAGTAG jobs (ORIENT, DOTPLOT_MAP, ANCHORWAVE), because the RAGTAG jobs have longer queue wait times and LSF schedules FIFO within a priority level.
-
-| Job pair | Start (clock) | End (clock) |
-|----------|---------------|-------------|
-| RAGTAG B73+PT TMEX | Tue 11:45 | Tue 13:33 |
-| ORIENT TMEX + RAGTAG_B73 MI21 | Tue 13:33 | Tue 13:48 / 15:21 |
-| RAGTAG_PT MI21 (after ORIENT frees slot) | Tue 13:48 | Tue 15:36 |
-| RAGTAG B73+PT BNI | Tue 15:36 | Tue 17:24 |
-| RAGTAG B73+PT BDI | Tue 17:24 | Tue 19:12 |
-
-Minor overlaps from ORIENT (15min) and RAGTAG_MERGE (instant) shave ~30min off.
-
-**All RAGTAG done: ~Tue 19:00 EDT**
-
-### Phase 4: ORIENT + DOTPLOT — fast (T+25.5h to T+26h)
-
-Once RAGTAG clears, all 4 samples run ORIENT → DOTPLOT_MAP → DOTPLOT_PLOT. These are short jobs that cycle through the 2 slots quickly.
-
-| Step | Duration per sample | Total for 4 samples |
-|------|---------------------|---------------------|
-| ORIENT | 15min | ~30min (2 at a time) |
-| DOTPLOT_MAP ×2 | 6min each | ~24min |
-| DOTPLOT_PLOT | ~1min | ~4min |
-
-**All dotplots ready: ~Tue 20:00 EDT**
-
-### Phase 5: LIFTOFF + ANCHORWAVE — long tail (T+26h to T+39h)
-
-After dotplots, 12 remaining jobs compete for 2 slots:
-
-| Jobs | Count | Duration each | Slot-hours total |
-|------|-------|---------------|------------------|
-| LIFTOFF | 4 | 0.6h | 2.4h |
-| ANCHORWAVE_B73 | 4 | 1.1h | 4.4h |
-| ANCHORWAVE_PT | 4 | 5.0h | 20.0h |
-| **Total** | **12** | | **26.8 slot-hours** |
-
-With 2 slots: 26.8 / 2 = **~13.4h** theoretical minimum.
-
-LIFTOFF and ANCHORWAVE_B73 finish first (~3.4h), then 4 ANCHORWAVE_PT jobs take 2 × 5h = 10h.
-
-**Pipeline complete: ~Wed 08:00–09:00 EDT**
+| Sample | FASTQ size | Est. time | Actual time | Max Memory |
+|--------|-----------|-----------|-------------|------------|
+| BNI_NIL | 13.9 GB | 4.0h | **3.0h** | 35 GB |
+| BDI_NIL | 19.0 GB | 5.5h | **4.7h** | 46 GB |
+| MI21_NIL | 11.8 GB | 3.4h | **2.7h** | 33 GB |
+| TMEX_NIL | 15.8 GB | 4.3h | **4.1h** | 44 GB |
+| **Total (serialized)** | | **17.2h** | **14.5h** | |
 
 ---
 
-## 5. Per-Sample Milestone Summary
+## 4. Current Run Status (~19:00 EDT Mon Mar 17)
 
-All times assume submission at Mon 18:32 EDT and ntanduk's 9 slots persist.
+### Completed phases
 
-| Sample | HIFIASM done | RAGTAG done | Dotplots ready | ANCHORWAVE_PT done | All complete |
-|--------|-------------|-------------|----------------|--------------------|--------------|
-| TMEX_NIL | Mon 22:51 | Tue 13:33 | Tue ~20:15 | Wed ~03:00 | Wed ~03:00 |
-| MI21_NIL | Tue 02:15 | Tue 15:36 | Tue ~20:30 | Wed ~05:00 | Wed ~05:00 |
-| BNI_NIL | Tue 06:15 | Tue 17:24 | Tue ~20:45 | Wed ~07:00 | Wed ~07:00 |
-| BDI_NIL | Tue 11:45 | Tue 19:12 | Tue ~21:00 | Wed ~09:00 | Wed ~09:00 |
+| Phase | Actual completion | Notes |
+|-------|------------------|-------|
+| MERGE_FASTQ (4 samples) | Mon 19:30 | Instant |
+| HIFIASM (4 samples, serialized) | Tue 10:16 | 14.5h total, ~2.7h ahead of estimate |
+| RAGTAG_SCAFFOLD (8 jobs) | Tue ~17:00 | BDI took longest (3.3h, exceeded 128 GB) |
+| RAGTAG_MERGE (4 samples) | Tue ~17:00 | <1 min each |
+| ORIENT (4 samples) | Tue ~17:00 | ~4 min each |
+| DOTPLOT (4 samples) | Tue ~17:00 | Completed with wrong labels (old code) |
+| LIFTOFF (BNI, BDI, MI21) | Tue ~17:00 | TMEX LIFTOFF currently running |
 
----
+### Currently running (~19:00 EDT Tue)
 
-## 6. Key Milestones
+| Job | Sample | Started | Est. completion |
+|-----|--------|---------|-----------------|
+| LIFTOFF | TMEX_NIL | ~18:59 | ~19:25 |
+| ANCHORWAVE_REF2 | BNI_NIL (parviglumis) | ~17:00 | ~22:00 |
 
-| Milestone | ETA (clock) | Hours from submission |
-|-----------|-------------|---------------------|
-| First HIFIASM complete (TMEX) | Mon 22:51 | 4.3h |
-| All HIFIASM complete | Tue 11:45 | 17.2h |
-| First dotplots ready (TMEX) | Tue ~20:15 | ~25.7h |
-| **All dotplots ready** | **Tue ~21:00** | **~26.5h** |
-| First sample fully complete (TMEX) | Wed ~03:00 | ~32.5h |
-| **Pipeline fully complete** | **Wed ~09:00** | **~38.5h** |
+### Pending (FIFO order)
 
----
+| Job | Sample | Cores |
+|-----|--------|-------|
+| ANCHORWAVE_B73 | BDI_NIL | 8 |
+| ANCHORWAVE_REF2 | BDI_NIL (parviglumis) | 8 |
+| ANCHORWAVE_B73 | MI21_NIL | 8 |
+| ANCHORWAVE_REF2 | MI21_NIL (PT) | 8 |
+| ANCHORWAVE_REF2 | TMEX_NIL (mexicana) | 8 |
+| ANCHORWAVE_B73 | TMEX_NIL | 8 |
 
-## 7. Where Time Is Spent
+### Estimated completion of current run
 
-| Phase | Duration | % of total | Bottleneck |
-|-------|----------|-----------|------------|
-| HIFIASM (serialized) | 17.2h | 45% | Only 1 fits in 22 available slots |
-| RAGTAG (serialized) | 7.3h | 19% | 2 per sample × both slots = 1 sample at a time |
-| ORIENT + DOTPLOT | 1.0h | 3% | Short jobs, fast |
-| ANCHORWAVE_PT (long tail) | 13.0h | 33% | 5h each, 2 at a time |
-| **Total** | **~38.5h** | | |
+With ~31 available slots (ntanduk appears to have finished), 3 ANCHORWAVE jobs
+can run concurrently (3 × 8 = 24 slots).
 
-**Idle slot-hours during HIFIASM phase:** 6 slots × 17.2h = **103 slot-hours wasted** (27% of total capacity).
+| Batch | Jobs | Duration | Clock |
+|-------|------|----------|-------|
+| BNI_REF2 finishing + TMEX LIFTOFF | 2 running | ~3h (BNI_REF2) | Tue ~22:00 |
+| BDI_B73 + MI21_B73 + TMEX_B73 | 3 × ~67 min | ~67 min | Tue ~23:00 |
+| BDI_REF2 + MI21_REF2 + TMEX_REF2 | 3 × ~5h | ~5h | **Wed ~04:00** |
 
----
+**Current run complete: ~Wed 04:00 EDT** (if 3-wide ANCHORWAVE)
 
-## 8. Scenario: ntanduk's Jobs Finish
-
-ntanduk's `combine_vcf` jobs have been running since Mar 11 (5 days). If they complete:
-
-| Metric | Current (22 slots) | ntanduk done (31 slots) |
-|--------|-------------------|------------------------|
-| HIFIASM concurrent | 1 | 1 (16+16=32 > 31) |
-| 8-core concurrent | 2 | **3** |
-| HIFIASM + RAGTAG overlap | No (16+8=24 > 22) | **Yes** (16+8=24 ≤ 31) |
-| RAGTAG batches | 4 (1 sample/batch) | 3 (8 jobs / 3 per batch) |
-| ANCHORWAVE_PT batches | 2 (5h each) | 2 (same: ceil(4/3)=2) |
-| Post-HIFIASM duration | ~21h | **~14h** |
-| **Total ETA** | **~38.5h** | **~31h** |
-| **All dotplots** | **Tue ~21:00** | **Tue ~18:00** |
-
-The biggest gain is HIFIASM+RAGTAG overlap: completed samples can start RAGTAG while the next HIFIASM runs, saving ~4h of serialization.
+**Note:** These ANCHORWAVE results use the OLD orient output (BDI chr4
+misassigned, all dotplots mislabeled). They will be re-run by the fix rerun.
 
 ---
 
-## 9. Risks
+## 5. Fix Rerun — ETA after Current Run
 
-| Risk | Impact | Likelihood | Mitigation |
-|------|--------|------------|------------|
-| ntanduk jobs persist all week | Already priced in (current estimate) | Medium | Talk to ntanduk / lab; their jobs have run 5 days |
-| ANCHORWAVE_B73 exceeds 128 GB, OOM killed | Adds 1.1h per rerun | Low | Was 83 GB on TMEX; now allocated 128 GB |
-| RAGTAG exceeds 128 GB on BDI (largest input, 19 GB) | Adds 1.8h per rerun | Low | TMEX used 110 GB; BDI genome same size |
-| BDI HIFIASM slower than estimated (23x coverage) | Adds 1-2h | Medium | 5.5h is extrapolated; could be 6h+ |
-| sara fills up with other users' jobs | Delays all pending jobs | Low | sara typically lightly used |
-| Node memory insufficient for 128 GB RAGTAG | Job stays pending | Low | Ran successfully on TMEX |
+Two `orient_fix_rerun` jobs (479302, 479381) are queued with
+`-w "done(467654)"`. They will start after the current orchestrator finishes.
+
+**Note:** One of these is a duplicate submission — only one will run the
+pipeline, the other will find nothing to do (or should be killed: `bkill 479381`).
+
+### What the rerun re-executes
+
+The rerun picks up three code changes:
+1. `orient_scaffolds.py` — per-chromosome best-scaffold (fixes BDI chr4)
+2. `ragtag_merge.nf` — skip merge for BDI (fixes BDI chr9)
+3. `plot_dotplot.R` + `dotplot_plot.nf` — correct ref2 labels
+
+| Process | Samples affected | Cached? | Est. duration |
+|---------|-----------------|---------|---------------|
+| HIFIASM | all | **cached** | 0 |
+| GFA_TO_FASTA | all | **cached** | 0 |
+| RAGTAG_SCAFFOLD | all | **cached** | 0 |
+| RAGTAG_MERGE | all 4 | **re-runs** (script changed) | 4 × 45s = ~3 min |
+| ORIENT | all 4 | **re-runs** (script changed) | 4 × 4 min = ~16 min |
+| DOTPLOT_MAP | all 8 | **re-runs** (orient output changed) | 8 × 5 min = ~40 min |
+| DOTPLOT_PLOT | all 4 | **re-runs** (script + inputs changed) | 4 × 1 min = ~4 min |
+| LIFTOFF | all 4 | **re-runs** (orient output changed) | 4 × 27 min = ~2h (2-wide) |
+| ANCHORWAVE_B73 | all 4 | **re-runs** (orient output changed) | 4 × 67 min = ~2.2h (2-wide) |
+| ANCHORWAVE_REF2 | all 4 | **re-runs** (orient output changed) | 4 × ~5h = **~10h** (2-wide) or **~7h** (3-wide) |
+
+### Rerun timeline (assuming 3-wide at 31 slots)
+
+| Phase | Duration | Clock (from rerun start) |
+|-------|----------|--------------------------|
+| MERGE + ORIENT + DOTPLOT_MAP + DOTPLOT_PLOT | ~1h | +1h |
+| LIFTOFF (4 samples, 2-wide) | ~1h | +2h |
+| ANCHORWAVE_B73 (4 samples, 3-wide) | ~1.5h | +3.5h |
+| ANCHORWAVE_REF2 (4 samples, 3-wide) | ~5h | +8.5h |
+| **Total rerun** | | **~8.5h** |
+
+If ntanduk's slots are still free (3-wide ANCHORWAVE).
+If ntanduk returns (2-wide): ~12h instead.
+
+### Combined timeline
+
+| Milestone | ETA |
+|-----------|-----|
+| Current run complete | **Wed ~04:00** |
+| Rerun starts (orient_fix_rerun triggers) | Wed ~04:00 |
+| Rerun: dotplots ready (with correct labels + BDI chr4 fixed) | Wed ~05:00 |
+| Rerun: liftoff complete | Wed ~06:00 |
+| **Rerun complete (all ANCHORWAVE)** | **Wed ~12:30** |
+
+### What to verify after rerun
+
+1. BDI chr4: `scaffold_correspondence.tsv` should show 1000+ anchors, FLIPPED
+2. BDI chr9: should be ~186 MB (B73-only scaffold) vs 47 MB (old merge)
+3. Dotplot labels: parviglumis/mexicana/PT (not "PT" for all)
+4. TMEX dotplots: first review — check for anomalies
 
 ---
 
-## 10. What Could Speed This Up
+## 6. Original vs Actual vs Rerun — Time Comparison
 
-| Change | Time saved | Feasibility |
-|--------|-----------|-------------|
-| Move orchestrator off sara (standard/long queue) | +1 slot → no real gain (22→23, still 2×8) | Blocked: standard needs 8 cores min, long has 480 pending |
-| ntanduk jobs finish | ~7h saved (overlap HIFIASM+RAGTAG, 3×8 slots) | Out of our control |
-| Reduce HIFIASM to 8 cores | 2 HIFIASM concurrent, but each ~2× slower. Net neutral. | Not helpful |
-| Run RAGTAG at 4 cores (slower but more parallel) | Unknown scaling; may double RAGTAG time | Risky |
-| Disable ANCHORWAVE (dotplots don't need it) | Saves ~13h of slot-time | Only if annotations not needed |
+| Phase | Original estimate | Actual (current run) | Rerun (cached HIFIASM/RAGTAG) |
+|-------|------------------|---------------------|-------------------------------|
+| HIFIASM | 17.2h | 14.5h | cached |
+| RAGTAG | 7.3h | ~8h (BDI slow) | cached |
+| MERGE + ORIENT + DOTPLOT | 1.5h | ~1h | ~1h |
+| LIFTOFF | 1.5h | ~1h | ~1h |
+| ANCHORWAVE | 13h | ~10h (est., 3-wide) | ~6.5h (3-wide) |
+| **Total** | **38.5h** | **~34h** | **~8.5h** |
+| **Cumulative (run + rerun)** | | | **~42.5h** |
+
+The rerun adds ~8.5h on top of the ~34h original run, for a total of ~42.5h
+from original submission to final corrected results. The overhead vs getting it
+right the first time (~34h) is ~8.5h — the cost of the orient/merge bugs.
 
 ---
 
-*Analysis generated: March 16, 2026, 18:45 EDT*
-*Assumes ntanduk's 9 slots persist for entire run (worst case)*
+## 7. Risks (updated)
+
+| Risk | Impact | Status |
+|------|--------|--------|
+| ~~RAGTAG exceeds 128 GB on BDI~~ | ~~Adds 1.8h per rerun~~ | **Occurred.** 144 GB peak. Bumped to 192 GB. |
+| ~~BDI HIFIASM slower than estimated~~ | ~~Adds 1-2h~~ | **OK.** 4.7h actual vs 5.5h est. |
+| ~~ntanduk's jobs persist~~ | ~~ETAs +7h~~ | **Resolved.** Jobs no longer visible. |
+| ANCHORWAVE_REF2 OOM on parviglumis/mexicana | Re-run adds ~5h per failure | Low — allocated 128 GB |
+| BNI chr2/chr8 assembly gaps | No pipeline fix | Known limitation — document |
+| Rerun orient_fix_rerun duplicate job | Wastes 1 slot | Kill one: `bkill 479381` |
+
+---
+
+*Original analysis: March 16, 2026, 18:45 EDT.*
+*Updated: March 17, 2026, ~19:00 EDT — with 4-genome actuals and fix rerun timeline.*
