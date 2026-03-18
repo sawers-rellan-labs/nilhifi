@@ -317,6 +317,10 @@ See [`docs/claude_code_hpc_setup.md`](docs/claude_code_hpc_setup.md) for full se
 
 ## Key Design Decisions
 
+- **`alignmentToDotplot.pl`** — Perl script from the [AnchorWave protocol](https://github.com/Bio-protocol/anchorwave_protocol)
+  (Song et al., 2022). Converts minimap2 SAM + GFF into dotplot tab format
+  (refChr, refPos, queryChr, queryPos, strand). Used by ORIENT and DOTPLOT_MAP.
+  Not original code — included verbatim from the Bio-protocol repository.
 - **No `ragtag correct`** — misinterprets the Inv4m inversion as misassembly
 - **hifiasm `-l0`** — disables purge-dups for inbred NILs
 - **Per-sample dual-reference scaffolding** — B73 (NIL background) + a per-sample
