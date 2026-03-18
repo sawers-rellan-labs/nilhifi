@@ -210,24 +210,48 @@ observed ~114 GB peak).
 
 **Affected file:** `nextflow/modules/ragtag_scaffold.nf`
 
-### 3. Nextflow cache invalidated after pipeline code changes
+### 3. Nextflow `-resume` is unreliable for iterative debugging
 
-**Symptom:** After fixing issues #1 and #2, re-running with `-resume` re-submitted
-HIFIASM from scratch (~4.3 h) instead of using the cached result from the previous
-successful run.
+Nextflow's `-resume` flag is designed for crash recovery, not iterative development.
+We hit two distinct cache invalidation problems during this project:
 
-**Cause:** The fixes changed `main.nf` and `ragtag_merge.nf`, producing a new pipeline
-revision (`825171e912` vs `75fa3f5b01`). Nextflow computes task cache hashes from the
-script content, inputs, and configuration. When `main.nf` changed (workflow wiring),
-the cache hashes for all tasks — including upstream tasks like HIFIASM whose process
-code did not change — no longer matched, invalidating the entire cache.
+**Problem A: Code changes to `main.nf` invalidate ALL task caches**
 
-**Impact:** The Mar-11 resumed run re-ran MERGE\_FASTQ and HIFIASM despite both having
-completed successfully in the Mar-03/04 runs. This added ~4.5 h of redundant compute.
+After fixing issues #1 and #2, `-resume` re-submitted HIFIASM from scratch (~4.3h)
+instead of using the cached result. The fixes changed `main.nf` (workflow wiring),
+which produced a new pipeline revision hash. Nextflow computes task cache keys from
+the script content, inputs, **and** the pipeline revision. When the revision changed,
+every task hash changed — including upstream tasks like HIFIASM whose process code
+was untouched. This added ~4.5h of redundant compute.
 
-**Lesson:** When fixing downstream processes, be aware that changes to `main.nf` (the
-workflow block) can invalidate caches for all processes, not just the ones you modified.
-Consider testing workflow-level changes with `-preview` first.
+**Mitigation:** Edit module `.nf` files directly instead of `main.nf` when possible.
+Module-only changes invalidate only that process (and its downstream dependents),
+not the entire DAG. Changes to `nextflow.config` params referenced in a process
+script also invalidate that process. Test workflow-level changes with `-preview` first.
+
+**Problem B: `-resume` picks the wrong session**
+
+During the Mar 18 rerun, `-resume` attached to the most recent Nextflow session — a
+`-preview -with-dag` dry run that had zero cached tasks — instead of the production
+session that contained 41.5h of completed work. This caused a full re-execution of
+the entire pipeline (~38h wasted).
+
+Nextflow's `-resume` without arguments picks the **last session in the history file**,
+not the last session that actually ran tasks. Any `-preview`, `-with-dag`, or aborted
+run that creates a new session ID will become the resume target.
+
+**Mitigation:** Always pass the explicit session ID when resuming a specific run:
+```bash
+# Check history to find the right session
+cat .nextflow/history
+
+# Resume from a specific session
+nextflow run main.nf -profile lsf -resume <session-uuid>
+```
+
+**General guidance:** For pipelines with expensive early steps (HIFIASM: 14.5h,
+RAGTAG: 7h), treat `-resume` with extreme care. Verify the session ID before
+submitting. A single careless resume can cost days of wasted compute.
 
 ### 4. RAGTAG\_MERGE received directories instead of AGP files (fixed 2026-03-15)
 
@@ -297,6 +321,29 @@ mexicana). The R script also had a hardcoded scaffold-to-chromosome mapping
 from alignment data. Nextflow module extracts ref2 name from the tab filename.
 
 **Affected files:** `nextflow/bin/plot_dotplot.R`, `nextflow/modules/dotplot_plot.nf`
+
+### 8. Whole-genome dotplots missing cross-chromosome alignments (open)
+
+**Symptom:** The whole-genome dotplots only show diagonal (same-chromosome) alignments.
+Cross-chromosome comparisons (e.g., translocations, shared synteny between non-homologous
+chromosomes) are absent from the plots.
+
+**Cause:** `alignmentToDotplot.pl` filters out alignments where the reference chromosome
+and query chromosome differ. This is baked into the Perl script's logic — it only emits
+rows where refChr matches queryChr. For a standard synteny dotplot this is arguably
+correct, but for diagnosing assembly errors (chimeric scaffolds, misplaced contigs) or
+detecting inter-chromosomal rearrangements, the cross-chromosome signal is essential.
+
+**Status:** Not yet fixed. The current dotplots are usable for confirming per-chromosome
+scaffold orientation and detecting inversions (e.g., Inv4m), but they will miss any
+inter-chromosomal misassembly.
+
+**Planned fix:** Replace `alignmentToDotplot.pl` with an R-based SAM-to-dotplot
+conversion inside `plot_dotplot.R`. This would:
+- Eliminate the Perl dependency
+- Retain cross-chromosome alignments (plotted as off-diagonal points)
+- Allow filtering by MAPQ and alignment length directly in R
+- Consolidate the entire dotplot pipeline (SAM parsing + plotting) into a single script
 
 ## Claude Code Setup (HPC)
 
